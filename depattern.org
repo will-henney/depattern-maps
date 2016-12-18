@@ -1,0 +1,169 @@
+#+title: Removing fixed pattern noise from maps
+In particular, getting rid of the tartan patterns in MUSE velocity maps
+
+* Real-space filtering
+:PROPERTIES:
+:ID:       7E273615-5455-41BA-8606-458A9A2E35DF
+:END:
++ Period seems to be 292 pixels
++ New [2016-12-18 Sun]
+  + [X] Fix the plot file naming to be per map
+  + [ ] Polynomial detrend each chunk to order 2
+  + [X] Allow adjustment of plot limits
+  + [ ] Make lines thinner
+  + [ ] Look into changing period in y
+
+#+BEGIN_SRC python :eval no :tangle de-pattern-noise.py
+  import sys
+  import os
+  import numpy as np
+  from astropy.io import fits
+  from matplotlib import pyplot as plt
+  import seaborn as sns
+
+  try: 
+      infile = sys.argv[1]
+  except:
+      sys.exit('Usage: {} FITSFILE'.format(sys.argv[0]))
+
+  try:
+      YMIN, YMAX = float(sys.argv[2]), float(sys.argv[3])
+  except IndexError:
+      YMIN, YMAX = 0.85, 1.15
+    
+  basename = os.path.basename(infile)
+  baseroot, _ = os.path.splitext(basename)
+
+  hdu = fits.open(infile)[0]
+  if hdu.data is None:
+      hdu = fits.open(infile)[1]
+  hdr = hdu.header
+
+  ny, nx = hdu.data.shape
+
+  # Size of chunks
+  mx, my = 290, 290
+  xchunks, ychunks = nx//mx, ny//my
+  xprofile = np.nanmean(hdu.data, axis=0)
+  yprofile = np.nanmean(hdu.data, axis=1)
+  plotfile = 'pattern-noise-xy-{}.pdf'.format(baseroot)
+  fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+
+  x = np.arange(mx)
+  xpstack = []
+  for ichunk in range(xchunks):
+      xp = xprofile[ichunk*mx:ichunk*mx + mx]
+      ax1.plot(x, xp/xp.mean(), label=str(ichunk))
+      xpstack.append(xp/xp.mean())
+  xpstack = np.vstack(xpstack)
+  xpm = np.median(xpstack, axis=0)
+  ax1.plot(x, xpm, 'k', lw=6, alpha=0.2)
+  ax1.legend(ncol=2)
+  ax1.set(
+      ylim=[YMIN, YMAX],
+      ylabel='x profile',
+  )
+
+  y = np.arange(my)
+  ypstack = []
+  for jchunk in range(ychunks):
+      yp = yprofile[jchunk*my:jchunk*my + my]
+      ax2.plot(y, yp/yp.mean(), label=str(jchunk))
+      ypstack.append(yp/yp.mean())
+  ypstack = np.vstack(ypstack)
+  ypm = np.median(ypstack, axis=0)
+  ax2.plot(y, ypm, 'k', lw=6, alpha=0.2)
+  ax2.legend(ncol=2)
+  ax2.set(
+      ylim=[YMIN, YMAX],
+      xlabel='pixel in chunk',
+      ylabel='y profile',
+  )
+
+  fig.set_size_inches(6, 6)
+  fig.tight_layout()
+  fig.savefig(plotfile)
+
+  # Finally, reconstruct the pattern noise image
+  patmap = np.ones_like(hdu.data)
+  tile = xpm[None, :]*ypm[:, None]
+  for jchunk in range(ychunks):
+      yslice = slice(jchunk*my, jchunk*my + my)
+      for ichunk in range(xchunks):
+          xslice = slice(ichunk*mx, ichunk*mx + mx)
+          patmap[yslice, xslice] = tile
+
+  fits.PrimaryHDU(data=patmap,
+                  header=hdr).writeto(infile.replace('.fits',
+                                                     '-pattern.fits'), clobber=True)
+
+  fits.PrimaryHDU(data=hdu.data/patmap,
+                  header=hdr).writeto(infile.replace('.fits',
+                                                     '-patfix.fits'), clobber=True)
+
+  print(plotfile, end='')
+
+
+#+END_SRC
+
+#+BEGIN_SRC shell :results file drawer
+  python de-pattern-noise.py LineMaps/mean-O_III-5007.fits
+  #printf '%s\n' pattern-noise-xy-mean-O_III-5007.pdf
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+[[file:pattern-noise-xy-mean-O_III-5007.pdf]]
+:END:
+
+
++ This works pretty well, but there is still a horizontal ridge to clean up at the top and bottom
++ Now look at the red lines, that are better s/n
+
+#+BEGIN_SRC sh :results file
+python de-pattern-noise.py LineMaps/mean-S_III-9069.fits 0.9 1.1
+#+END_SRC
+
+#+RESULTS:
+[[file:pattern-noise-xy-mean-S_III-9069.pdf]]
+
+#+BEGIN_SRC sh :results file
+python de-pattern-noise.py LineMaps/mean-Ar_III-7136.fits
+#+END_SRC
+
+#+RESULTS:
+[[file:pattern-noise-xy-mean-Ar_III-7136.pdf]]
+
+#+BEGIN_SRC sh :results file
+python de-pattern-noise.py LineMaps/sigma-Ar_III-7136.fits
+#+END_SRC
+
+#+RESULTS:
+[[file:pattern-noise-xy-sigma-Ar_III-7136.pdf]]
+
+
+And the lower ionization lines
+#+BEGIN_SRC sh :results file
+python de-pattern-noise.py LineMaps/mean-S_II-6731.fits
+#+END_SRC
+
+#+RESULTS:
+[[file:pattern-noise-xy.pdf]]
+
+#+BEGIN_SRC sh :results file
+python de-pattern-noise.py LineMaps/mean-O_II-7330.fits
+#+END_SRC
+
+#+BEGIN_SRC sh :results file
+python de-pattern-noise.py LineMaps/mean-O_I-8446.fits
+#+END_SRC
+
+#+RESULTS:
+[[file:pattern-noise-xy.pdf]]
+
++ Wow! with this, we can see the base of the jets that must feed HH203/204
+  + See blueshifted filaments in O I 8446
+
+
+
+* TODO Fourier-space filtering
