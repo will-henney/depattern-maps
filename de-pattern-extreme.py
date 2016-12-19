@@ -66,8 +66,8 @@ for jchunk in range(ychunks):
 
 fits.PrimaryHDU(data=patmap,
                 header=hdr).writeto(infile.replace('.fits',
-                                                   '-pattern.fits'), clobber=True)
+                                                   '-patternx.fits'), clobber=True)
 
 fits.PrimaryHDU(data=hdu.data/patmap,
                 header=hdr).writeto(infile.replace('.fits',
-                                                   '-patfix.fits'), clobber=True)
+                                                   '-patfixx.fits'), clobber=True)

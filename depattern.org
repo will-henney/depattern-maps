@@ -281,11 +281,11 @@ python de-pattern-noise.py LineMaps/mean-O_I-8446.fits
 
   fits.PrimaryHDU(data=patmap,
                   header=hdr).writeto(infile.replace('.fits',
-                                                     '-pattern.fits'), clobber=True)
+                                                     '-patternx.fits'), clobber=True)
 
   fits.PrimaryHDU(data=hdu.data/patmap,
                   header=hdr).writeto(infile.replace('.fits',
-                                                     '-patfix.fits'), clobber=True)
+                                                     '-patfixx.fits'), clobber=True)
 
 
 
@@ -337,19 +337,27 @@ Processing  ../OrionMuse/LineMaps/sigma-O_III-5592.fits
 Processing  ../OrionMuse/LineMaps/sigma-S_III-9069.fits
 :END:
 
++ [2016-12-19 Mon] We now use =patfixx= as the suffix to distinguish these from the ones in the previous section
+  + This is so we can compare which technique is more effective in the case of the eman velocities
+  + So, fix up the names of files we have already written for consistency 
 #+BEGIN_SRC bash :results silent
   D=../OrionMuse/LineMaps
-  python de-pattern-extreme.py $D/sigma-N_II-6583.fits
+  for f in $D/sigma-*-????-patfix.fits; do
+      suff=$(basename $f .fits)
+      mv $f ${suff}x.fits
+  done
 #+END_SRC
 
-#+BEGIN_SRC bash :results silent
++ Try out this version on the mean velocities too
+  + Run this in a shell
+#+BEGIN_SRC shell :eval no :tangle all-mean-extreme.sh
   D=../OrionMuse/LineMaps
-  python de-pattern-extreme.py $D/sigma-N_II-6548.fits
+  for f in $D/mean-*-????.fits; do
+      echo "Processing  $f"
+      python de-pattern-extreme.py $f
+  done
 #+END_SRC
 
-#+BEGIN_SRC bash :results silent
-  D=../OrionMuse/LineMaps
-  python de-pattern-extreme.py $D/sigma-N_II-6548.fits
-#+END_SRC
 
 * TODO Fourier-space filtering
++ Actually it looks like this is not goinf to be necessary
