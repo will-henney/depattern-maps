@@ -8,12 +8,17 @@ import seaborn as sns
 try: 
     infile = sys.argv[1]
 except:
-    sys.exit('Usage: {} FITSFILE'.format(sys.argv[0]))
+    sys.exit('Usage: {} FITSFILE [YMIN, YMAX] [NP]'.format(sys.argv[0]))
 
 try:
     YMIN, YMAX = float(sys.argv[2]), float(sys.argv[3])
 except IndexError:
     YMIN, YMAX = 0.85, 1.15
+
+try:
+    NP = int(sys.argv[4])
+except IndexError:
+    NP = 2
 
 basename = os.path.basename(infile)
 baseroot, _ = os.path.splitext(basename)
@@ -80,7 +85,8 @@ fig.savefig(plotfile)
 
 # Finally, reconstruct the pattern noise image
 patmap = np.ones_like(hdu.data)
-standard_tile = xpm[None, :]*ypm[:, None]
+# standard_tile = xpm[None, :]*ypm[:, None]
+standard_tile = 0.5*(xpm[None, :] + ypm[:, None])
 for jchunk in range(ychunks):
     yslice = slice(jchunk*my, jchunk*my + my)
     if jchunk in jshifts:

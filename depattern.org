@@ -1,4 +1,5 @@
 #+title: Remove fixed pattern noise from maps
+#+options: ^:{} toc:nil num:nil
 In particular, getting rid of the tartan patterns in MUSE velocity maps
 
 * Real-space filtering
@@ -14,6 +15,11 @@ In particular, getting rid of the tartan patterns in MUSE velocity maps
   + [ ] Look into changing period in y
     + Actually, we want 
 
+
+** Seperable in X and Y
+
+The mean velocities can be dealt with this way
+
 #+BEGIN_SRC python :eval no :tangle de-pattern-noise.py
   import sys
   import os
@@ -25,12 +31,17 @@ In particular, getting rid of the tartan patterns in MUSE velocity maps
   try: 
       infile = sys.argv[1]
   except:
-      sys.exit('Usage: {} FITSFILE'.format(sys.argv[0]))
+      sys.exit('Usage: {} FITSFILE [YMIN, YMAX] [NP]'.format(sys.argv[0]))
 
   try:
       YMIN, YMAX = float(sys.argv[2]), float(sys.argv[3])
   except IndexError:
       YMIN, YMAX = 0.85, 1.15
+
+  try:
+      NP = int(sys.argv[4])
+  except IndexError:
+      NP = 2
 
   basename = os.path.basename(infile)
   baseroot, _ = os.path.splitext(basename)
@@ -97,7 +108,8 @@ In particular, getting rid of the tartan patterns in MUSE velocity maps
 
   # Finally, reconstruct the pattern noise image
   patmap = np.ones_like(hdu.data)
-  standard_tile = xpm[None, :]*ypm[:, None]
+  # standard_tile = xpm[None, :]*ypm[:, None]
+  standard_tile = 0.5*(xpm[None, :] + ypm[:, None])
   for jchunk in range(ychunks):
       yslice = slice(jchunk*my, jchunk*my + my)
       if jchunk in jshifts:
@@ -130,6 +142,16 @@ In particular, getting rid of the tartan patterns in MUSE velocity maps
 #+RESULTS:
 :RESULTS:
 [[file:pattern-noise-xy-mean-O_III-5007.pdf]]
+:END:
+
+#+BEGIN_SRC shell :results file drawer
+  D=../OrionMuse/LineMaps
+  python de-pattern-noise.py $D/sigma-O_III-5007.fits 0.9 1.1 0
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+[[file:pattern-noise-xy-sigma-O_III-5007.pdf]]
 :END:
 
 
@@ -183,5 +205,151 @@ python de-pattern-noise.py LineMaps/mean-O_I-8446.fits
   + See blueshifted filaments in O I 8446
 
 
+
+
+** Non-seperable tile-by-tile
++ For the velocity widths, the pattern is not a simple product of f(X) * g(Y)
++ Rather, there is a complex pattern of subtiles
++ I will try and deal with it in the simplest way possible, by taking the median of all 30 tiles
+
+#+BEGIN_SRC python :eval no :tangle de-pattern-extreme.py
+  import sys
+  import os
+  import numpy as np
+  from astropy.io import fits
+
+  try: 
+      infile = sys.argv[1]
+  except:
+      sys.exit('Usage: {} FITSFILE'.format(sys.argv[0]))
+
+
+  basename = os.path.basename(infile)
+  baseroot, _ = os.path.splitext(basename)
+
+  hdu = fits.open(infile)[0]
+  if hdu.data is None:
+      hdu = fits.open(infile)[1]
+  hdr = hdu.header
+
+  ny, nx = hdu.data.shape
+
+  # Size of chunks
+  mx, my = 290, 290
+  xchunks, ychunks = nx//mx, ny//my
+
+  # Initialize 3-d array to hold stack of tiles
+  ntiles = xchunks*ychunks
+  tilestack = np.zeros((ntiles, my, mx))
+
+  # Little nudges to get the peaks to line up for the different y chunks
+  jshifts = {
+      0: -4,
+      1: +2,
+      2: +3,
+      3: +2,
+      4: -4,
+  }
+
+  # Put each tile on to the stack
+  ktile = 0
+  for jchunk in range(ychunks):
+      yslice = slice(jchunk*my, jchunk*my + my)
+      jshift = jshifts.get(jchunk, 0)
+      for ichunk in range(xchunks):
+          xslice = slice(ichunk*mx, ichunk*mx + mx)
+          # Roll the data according to the jshift
+          tile = np.roll(hdu.data[yslice, xslice], jshift, axis=0)
+          # This has side effect of making tile be a copy rather than a view
+
+          # Normalize each tile and dd to the stack
+          tilestack[ktile, :, :] = tile / np.nanmedian(tile)
+          ktile += 1
+
+  # Take the median down the stack to get the pattern
+  pattern_tile = np.nanmean(tilestack, axis=0)
+
+  # Now use copies of pattern_tile to make the pattern noise map
+  patmap = np.ones_like(hdu.data)
+  for jchunk in range(ychunks):
+      yslice = slice(jchunk*my, jchunk*my + my)
+      jshift = jshifts.get(jchunk, 0)
+      for ichunk in range(xchunks):
+          xslice = slice(ichunk*mx, ichunk*mx + mx)
+          # Roll the data back again according to the jshift
+          patmap[yslice, xslice] = np.roll(pattern_tile, -jshift, axis=0)
+
+  fits.PrimaryHDU(data=patmap,
+                  header=hdr).writeto(infile.replace('.fits',
+                                                     '-pattern.fits'), clobber=True)
+
+  fits.PrimaryHDU(data=hdu.data/patmap,
+                  header=hdr).writeto(infile.replace('.fits',
+                                                     '-patfix.fits'), clobber=True)
+
+
+
+#+END_SRC
+
+#+BEGIN_SRC bash :results drawer
+  D=../OrionMuse/LineMaps
+  for f in $D/sigma-*-????.fits; do
+      echo "Processing  $f"
+      python de-pattern-extreme.py $f
+  done
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+Processing  ../OrionMuse/LineMaps/sigma-Ar_III-5192.fits
+Processing  ../OrionMuse/LineMaps/sigma-Ar_III-7136.fits
+Processing  ../OrionMuse/LineMaps/sigma-Ar_III-7751.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-4861.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-6563.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-8438.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-8467.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-8502.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-8545.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-8598.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-8665.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-8750.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-8863.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-9015.fits
+Processing  ../OrionMuse/LineMaps/sigma-H_I-9229.fits
+Processing  ../OrionMuse/LineMaps/sigma-He_I-5016.fits
+Processing  ../OrionMuse/LineMaps/sigma-He_I-5048.fits
+Processing  ../OrionMuse/LineMaps/sigma-He_I-5876.fits
+Processing  ../OrionMuse/LineMaps/sigma-He_I-6678.fits
+Processing  ../OrionMuse/LineMaps/sigma-N_II-6548.fits
+Processing  ../OrionMuse/LineMaps/sigma-N_II-6583.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_I-5577.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_I-6046.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_I-6300.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_I-6364.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_I-7002.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_I-7254.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_I-8446.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_II-7318.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_II-7330.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_III-4959.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_III-5007.fits
+Processing  ../OrionMuse/LineMaps/sigma-O_III-5592.fits
+Processing  ../OrionMuse/LineMaps/sigma-S_III-9069.fits
+:END:
+
+#+BEGIN_SRC bash :results silent
+  D=../OrionMuse/LineMaps
+  python de-pattern-extreme.py $D/sigma-N_II-6583.fits
+#+END_SRC
+
+#+BEGIN_SRC bash :results silent
+  D=../OrionMuse/LineMaps
+  python de-pattern-extreme.py $D/sigma-N_II-6548.fits
+#+END_SRC
+
+#+BEGIN_SRC bash :results silent
+  D=../OrionMuse/LineMaps
+  python de-pattern-extreme.py $D/sigma-N_II-6548.fits
+#+END_SRC
 
 * TODO Fourier-space filtering
