@@ -291,7 +291,7 @@ python de-pattern-noise.py LineMaps/mean-O_I-8446.fits
 
 #+END_SRC
 
-#+BEGIN_SRC bash :results drawer
+#+BEGIN_SRC shell :eval no :tangle all-sigma-extreme.sh
   D=../OrionMuse/LineMaps
   for f in $D/sigma-*-????.fits; do
       echo "Processing  $f"
@@ -299,43 +299,6 @@ python de-pattern-noise.py LineMaps/mean-O_I-8446.fits
   done
 #+END_SRC
 
-#+RESULTS:
-:RESULTS:
-Processing  ../OrionMuse/LineMaps/sigma-Ar_III-5192.fits
-Processing  ../OrionMuse/LineMaps/sigma-Ar_III-7136.fits
-Processing  ../OrionMuse/LineMaps/sigma-Ar_III-7751.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-4861.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-6563.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-8438.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-8467.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-8502.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-8545.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-8598.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-8665.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-8750.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-8863.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-9015.fits
-Processing  ../OrionMuse/LineMaps/sigma-H_I-9229.fits
-Processing  ../OrionMuse/LineMaps/sigma-He_I-5016.fits
-Processing  ../OrionMuse/LineMaps/sigma-He_I-5048.fits
-Processing  ../OrionMuse/LineMaps/sigma-He_I-5876.fits
-Processing  ../OrionMuse/LineMaps/sigma-He_I-6678.fits
-Processing  ../OrionMuse/LineMaps/sigma-N_II-6548.fits
-Processing  ../OrionMuse/LineMaps/sigma-N_II-6583.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_I-5577.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_I-6046.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_I-6300.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_I-6364.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_I-7002.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_I-7254.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_I-8446.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_II-7318.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_II-7330.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_III-4959.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_III-5007.fits
-Processing  ../OrionMuse/LineMaps/sigma-O_III-5592.fits
-Processing  ../OrionMuse/LineMaps/sigma-S_III-9069.fits
-:END:
 
 + [2016-12-19 Mon] We now use =patfixx= as the suffix to distinguish these from the ones in the previous section
   + This is so we can compare which technique is more effective in the case of the eman velocities
