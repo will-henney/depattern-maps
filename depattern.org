@@ -323,4 +323,4 @@ python de-pattern-noise.py LineMaps/mean-O_I-8446.fits
 
 
 * TODO Fourier-space filtering
-+ Actually it looks like this is not goinf to be necessary
++ Actually it looks like this is not going to be necessary
